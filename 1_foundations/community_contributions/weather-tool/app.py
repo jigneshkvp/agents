@@ -9,7 +9,9 @@ import gradio as gr
 
 import openmeteo_requests
 
+
 load_dotenv(override=True)
+
 
 def push(text):
     requests.post(
@@ -18,12 +20,14 @@ def push(text):
             "token": os.getenv("PUSHOVER_TOKEN"),
             "user": os.getenv("PUSHOVER_USER"),
             "message": text,
-        }
+        },
     )
+
 
 openmeteo = openmeteo_requests.Client()
 
-def get_weather(place_name:str, countryCode:str = ""):
+
+def get_weather(place_name: str, countryCode: str = ""):
     coordinates = Geocoding().coordinates_search(place_name, countryCode)
     if coordinates:
         latitude = coordinates["results"][0]["latitude"]
@@ -31,14 +35,22 @@ def get_weather(place_name:str, countryCode:str = ""):
 
     else:
         return {"error": "No coordinates found"}
-    
+
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": latitude,
         "longitude": longitude,
-        "current": ["relative_humidity_2m", "temperature_2m", "apparent_temperature", "is_day", "precipitation", "cloud_cover", "wind_gusts_10m"],
+        "current": [
+            "relative_humidity_2m",
+            "temperature_2m",
+            "apparent_temperature",
+            "is_day",
+            "precipitation",
+            "cloud_cover",
+            "wind_gusts_10m",
+        ],
         "timezone": "auto",
-        "forecast_days": 1
+        "forecast_days": 1,
     }
     weather = openmeteo.weather_api(url, params=params)
 
@@ -53,11 +65,12 @@ def get_weather(place_name:str, countryCode:str = ""):
         "current_precipitation": current_weather.Variables(4).Value(),
         "current_cloud_cover": current_weather.Variables(5).Value(),
         "current_wind_gusts": current_weather.Variables(6).Value(),
-        "current_time": current_time
+        "current_time": current_time,
     }
 
     return response
-    
+
+
 get_weather_json = {
     "name": "get_weather",
     "description": "Use this tool to get the weather at a given location",
@@ -66,16 +79,16 @@ get_weather_json = {
         "properties": {
             "place_name": {
                 "type": "string",
-                "description": "The name of the location to get the weather for (city or region name)"
+                "description": "The name of the location to get the weather for (city or region name)",
             },
             "countryCode": {
                 "type": "string",
-                "description": "The two-letter country code of the location"
-            }
+                "description": "The two-letter country code of the location",
+            },
         },
         "required": ["place_name"],
-        "additionalProperties": False
-    }
+        "additionalProperties": False,
+    },
 }
 
 
@@ -83,9 +96,11 @@ def record_user_details(email, name="Name not provided", notes="not provided"):
     push(f"Recording {name} with email {email} and notes {notes}")
     return {"recorded": "ok"}
 
+
 def record_unknown_question(question):
     push(f"Recording {question}")
     return {"recorded": "ok"}
+
 
 record_user_details_json = {
     "name": "record_user_details",
@@ -95,21 +110,20 @@ record_user_details_json = {
         "properties": {
             "email": {
                 "type": "string",
-                "description": "The email address of this user"
+                "description": "The email address of this user",
             },
             "name": {
                 "type": "string",
-                "description": "The user's name, if they provided it"
-            }
-            ,
+                "description": "The user's name, if they provided it",
+            },
             "notes": {
                 "type": "string",
-                "description": "Any additional information about the conversation that's worth recording to give context"
-            }
+                "description": "Any additional information about the conversation that's worth recording to give context",
+            },
         },
         "required": ["email"],
-        "additionalProperties": False
-    }
+        "additionalProperties": False,
+    },
 }
 
 record_unknown_question_json = {
@@ -120,23 +134,26 @@ record_unknown_question_json = {
         "properties": {
             "question": {
                 "type": "string",
-                "description": "The question that couldn't be answered"
+                "description": "The question that couldn't be answered",
             },
         },
         "required": ["question"],
-        "additionalProperties": False
-    }
+        "additionalProperties": False,
+    },
 }
 
-tools = [{"type": "function", "function": record_user_details_json},
-        {"type": "function", "function": record_unknown_question_json},
-        {"type": "function", "function": get_weather_json}]
+tools = [
+    {"type": "function", "function": record_user_details_json},
+    {"type": "function", "function": record_unknown_question_json},
+    {"type": "function", "function": get_weather_json},
+]
 
 
 class Geocoding:
     """
     A simple Python wrapper for the Open-Meteo Geocoding API.
     """
+
     def __init__(self):
         """
         Initializes the GeocodingAPI client.
@@ -194,9 +211,15 @@ class Me:
             print(f"Tool called: {tool_name}", flush=True)
             tool = globals().get(tool_name)
             result = tool(**arguments) if tool else {}
-            results.append({"role": "tool","content": json.dumps(result),"tool_call_id": tool_call.id})
+            results.append(
+                {
+                    "role": "tool",
+                    "content": json.dumps(result),
+                    "tool_call_id": tool_call.id,
+                }
+            )
         return results
-    
+
     def system_prompt(self):
         # system_prompt = f"You are acting as {self.name}. You are answering questions on {self.name}'s website, \
         # particularly questions related to {self.name}'s career, background, skills and experience. \
@@ -209,7 +232,7 @@ class Me:
 
         # Get today's date and store it in a string
         today_date = datetime.date.today().strftime("%Y-%m-%d")
-        
+
         system_prompt = f"""
 Today is {today_date}. You are acting as {self.name}, responding to questions on {self.name}'s website. Most visitors are curious about {self.name}'s career, background, skills, and experience—your job is to represent {self.name} faithfully, professionally, and engagingly in those areas. Think of each exchange as a conversation with a potential client or future employer.
 
@@ -225,13 +248,19 @@ If the user is interested or continues the conversation, look for a natural oppo
         system_prompt += f"\n\n## Summary:\n{self.summary}\n\n## LinkedIn Profile:\n{self.linkedin}\n\n"
         system_prompt += f"With this context, please chat with the user, always staying in character as {self.name}."
         return system_prompt
-    
+
     def chat(self, message, history):
-        messages = [{"role": "system", "content": self.system_prompt()}] + history + [{"role": "user", "content": message}]
+        messages = (
+            [{"role": "system", "content": self.system_prompt()}]
+            + history
+            + [{"role": "user", "content": message}]
+        )
         done = False
         while not done:
-            response = self.openai.chat.completions.create(model="gpt-4o-mini", messages=messages, tools=tools)
-            if response.choices[0].finish_reason=="tool_calls":
+            response = self.openai.chat.completions.create(
+                model="gpt-4o-mini", messages=messages, tools=tools
+            )
+            if response.choices[0].finish_reason == "tool_calls":
                 message = response.choices[0].message
                 tool_calls = message.tool_calls
                 results = self.handle_tool_call(tool_calls)
@@ -240,9 +269,8 @@ If the user is interested or continues the conversation, look for a natural oppo
             else:
                 done = True
         return response.choices[0].message.content
-    
+
 
 if __name__ == "__main__":
     me = Me()
     gr.ChatInterface(me.chat, type="messages").launch()
-    
